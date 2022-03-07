@@ -246,6 +246,7 @@ void rtl_433_ESP::rtlSetup(r_cfg_t *cfg)
   memcpy(&cfg->devices[2], &acurite_986, sizeof(r_device));
   memcpy(&cfg->devices[3], &philips_aj3650, sizeof(r_device));
   memcpy(&cfg->devices[4], &fineoffset_WH51, sizeof(r_device));
+  memcpy(&cfg->devices[130], &tpms_truck, sizeof(r_device));
 #endif
 
 #ifdef MEMORY_DEBUG
