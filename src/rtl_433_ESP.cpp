@@ -94,7 +94,7 @@ void rtl_433_ESP::rtlSetup(r_cfg_t *cfg)
   if (!cfg->devices)
     FATAL_CALLOC("cfg->devices");
 
-#ifndef !MY_DEVICES
+#ifndef MY_DEVICES
   // This is a generated fragment from tools/update_rtl_433_devices.sh
 
   memcpy(&cfg->devices[0], &acurite_rain_896, sizeof(r_device));
