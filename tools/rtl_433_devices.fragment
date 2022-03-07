@@ -5,11 +5,15 @@
   DECL(acurite_606) \
   DECL(acurite_00275rm) \
   DECL(acurite_590tx) \
+  DECL(acurite_01185m) \
   DECL(akhan_100F14) \
   DECL(alectov1) \
+  DECL(altronics_7064) \
   DECL(ambientweather_tx8300) \
   DECL(ambientweather_wh31e) \
   DECL(archos_tbh) \
+  DECL(auriol_4ld5661) \
+  DECL(auriol_aft77b2) \
   DECL(auriol_afw2a1) \
   DECL(auriol_ahfl) \
   DECL(auriol_hg02832) \
@@ -37,6 +41,7 @@
   DECL(elv_em1000) \
   DECL(elv_ws2000) \
   DECL(emontx) \
+  DECL(emos_e6016) \
   DECL(esic_emt7110) \
   DECL(esperanza_ews) \
   DECL(eurochron) \
@@ -47,20 +52,25 @@
   DECL(fineoffset_wh1050) \
   DECL(fineoffset_wh1080) \
   DECL(fineoffset_wh1080_fsk) \
+  DECL(fineoffset_wh31l) \
+  DECL(fineoffset_ws80) \
   DECL(fs20) \
   DECL(ft004b) \
   DECL(generic_motion) \
   DECL(generic_remote) \
   DECL(generic_temperature_sensor) \
+  DECL(govee) \
   DECL(gt_tmbbq05) \
   DECL(gt_wt_02) \
   DECL(gt_wt_03) \
   DECL(hcs200) \
   DECL(holman_ws5029pcm) \
+  DECL(honeywell_cm921) \
   DECL(honeywell_wdb) \
   DECL(ht680) \
   DECL(ikea_sparsnas) \
   DECL(infactory) \
+  DECL(inkbird_ith20r) \
   DECL(kw9015b) \
   DECL(interlogix) \
   DECL(intertechno) \
@@ -71,12 +81,15 @@
   DECL(lacrosse_r1) \
   DECL(lacrosse_th3) \
   DECL(lacrosse_tx141x) \
+  DECL(lacrosse_tx34) \
   DECL(lacrosse_tx29) \
   DECL(lacrosse_tx35) \
   DECL(lacrosse_wr1) \
   DECL(lacrosse_ws7000) \
   DECL(lacrossews) \
   DECL(lightwave_rf) \
+  DECL(markisol) \
+  DECL(marlec_solar) \
   DECL(maverick_et73) \
   DECL(mebus433) \
   DECL(missil_ml0757) \
@@ -90,14 +103,18 @@
   DECL(philips_aj7010) \
   DECL(prologue) \
   DECL(quhwa) \
+  DECL(regency_fan) \
   DECL(rftech) \
+  DECL(rojaflex) \
   DECL(rubicson) \
   DECL(rubicson_48659) \
   DECL(s3318p) \
   DECL(silvercrest) \
+  DECL(simplisafe_gen3) \
   DECL(skylink_motion) \
   DECL(smoke_gs558) \
   DECL(solight_te44) \
+  DECL(somfy_iohc) \
   DECL(springfield) \
   DECL(tfa_30_3221) \
   DECL(tfa_drop_303233) \
@@ -107,6 +124,11 @@
   DECL(thermopro_tp11) \
   DECL(thermopro_tp12) \
   DECL(thermopro_tx2) \
+  DECL(tpms_ave) \
+  DECL(tpms_hyundai_vdo) \
+  DECL(tpms_porsche) \
+  DECL(tpms_renault_0435r) \
+  DECL(tpms_truck) \
   DECL(ts_ft002) \
   DECL(visonic_powercode) \
   DECL(waveman) \
@@ -116,5 +138,6 @@
   DECL(wt1024) \
   DECL(X10_RF) \
   DECL(x10_sec) \
+  DECL(yale_hsa) \
   /* Add new decoders here. */
-#define NUMOFDEVICES 118
+#define NUMOFDEVICES 141

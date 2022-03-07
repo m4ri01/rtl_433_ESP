@@ -55,9 +55,7 @@ static int oregon_scientific_v1_callback(r_device *decoder, bitbuffer_t *bitbuff
         // No need to decode/extract values for simple test
         if ( bitbuffer->bb[row][0] == 0xFF && bitbuffer->bb[row][1] == 0xFF
             && bitbuffer->bb[row][2] == 0xFF && bitbuffer->bb[row][3] == 0xFF )  {
-            if (decoder->verbose > 1) {
-                fprintf(stderr, "%s: DECODE_FAIL_SANITY data all 0xff\n", __func__);
-            }
+            decoder_log(decoder, 2, __func__, "DECODE_FAIL_SANITY data all 0xff");
             continue; //  DECODE_FAIL_SANITY
         }
 
@@ -79,15 +77,17 @@ static int oregon_scientific_v1_callback(r_device *decoder, bitbuffer_t *bitbuff
         if (sign)
             tempC = -tempC;
 
+        /* clang-format off */
         data = data_make(
-                "brand",        "",             DATA_STRING,    "OS",
-                "model",        "",             DATA_STRING,    _X("Oregon-v1","OSv1 Temperature Sensor"),
-                _X("id","sid"),         "SID",          DATA_INT,       sid,
-                "channel",      "Channel",      DATA_INT,       channel,
-                "battery",      "Battery",      DATA_STRING,    battery ? "LOW" : "OK",
-                "temperature_C","Temperature",  DATA_FORMAT,    "%.01f C",              DATA_DOUBLE,    tempC,
-                "mic",          "Integrity",    DATA_STRING,    "CHECKSUM",
-            NULL);
+                "model",            "",             DATA_STRING,    "Oregon-v1",
+                "id",               "SID",          DATA_INT,       sid,
+                "channel",          "Channel",      DATA_INT,       channel,
+                "battery_ok",       "Battery",      DATA_INT,       !battery,
+                "temperature_C",    "Temperature",  DATA_FORMAT,    "%.01f C",              DATA_DOUBLE,    tempC,
+                "mic",              "Integrity",    DATA_STRING,    "CHECKSUM",
+                NULL);
+        /* clang-format on */
+
         decoder_output_data(decoder, data);
         ret++;
     }
@@ -95,25 +95,22 @@ static int oregon_scientific_v1_callback(r_device *decoder, bitbuffer_t *bitbuff
 }
 
 static char *output_fields[] = {
-    "brand",
-    "model",
-    "sid", // TODO: delete this
-    "id",
-    "channel",
-    "battery",
-    "temperature_C",
-    "mic",
-    NULL,
+        "model",
+        "id",
+        "channel",
+        "battery_ok",
+        "temperature_C",
+        "mic",
+        NULL,
 };
 
 r_device oregon_scientific_v1 = {
-    .name           = "OSv1 Temperature Sensor",
-    .modulation     = OOK_PULSE_PWM_OSV1,
-    .short_width    = 1465, // nominal half-bit width
-    .sync_width     = 5780,
-    .gap_limit      = 3500,
-    .reset_limit    = 14000,
-    .decode_fn      = &oregon_scientific_v1_callback,
-    .disabled       = 0,
-    .fields         = output_fields,
+        .name        = "OSv1 Temperature Sensor",
+        .modulation  = OOK_PULSE_PWM_OSV1,
+        .short_width = 1465, // nominal half-bit width
+        .sync_width  = 5780,
+        .gap_limit   = 3500,
+        .reset_limit = 14000,
+        .decode_fn   = &oregon_scientific_v1_callback,
+        .fields      = output_fields,
 };

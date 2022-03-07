@@ -7,7 +7,6 @@
     (at your option) any later version.
 */
 
-
 #include "decoder.h"
 
 static uint16_t AD_POP(uint8_t *bb, uint8_t bits, uint8_t bit)
@@ -54,7 +53,7 @@ static int em1000_callback(r_device *decoder, bitbuffer_t *bitbuffer)
         stopbit = AD_POP(bb_p, 1, bit);
         bit += 1;
         if (!stopbit) {
-//            fprintf(stderr, "!stopbit: %i\n", i);
+//            decoder_logf(decoder, 0, __func__, "!stopbit: %i", i);
             return DECODE_ABORT_EARLY;
         }
         checksum_calculated ^= dec[i];
@@ -64,11 +63,11 @@ static int em1000_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     // Read checksum
     checksum_received = AD_POP (bb_p, 8, bit); bit+=8;
     if (checksum_received != checksum_calculated) {
-//        fprintf(stderr, "checksum_received != checksum_calculated: %d %d\n", checksum_received, checksum_calculated);
+//        decoder_logf(decoder, 0, __func__, "checksum_received != checksum_calculated: %d %d", checksum_received, checksum_calculated);
         return DECODE_FAIL_MIC;
     }
 
-//for (i = 0; i < bytes; i++) fprintf(stderr, "%02X ", dec[i]); fprintf(stderr, "\n");
+//    decoder_log_bitrow(decoder, 0, __func__, dec, bytes * 8, "");
 
     // based on 15_CUL_EM.pm
     //char *subtype = dec[0] >= 1 && dec[0] <= 3 ? types[dec[0] - 1] : "?";
@@ -93,27 +92,26 @@ static int em1000_callback(r_device *decoder, bitbuffer_t *bitbuffer)
 }
 
 static char *elv_em1000_output_fields[] = {
-    "model",
-    "id",
-    "seq",
-    "total",
-    "current",
-    "peak",
-    NULL,
+        "model",
+        "id",
+        "seq",
+        "total",
+        "current",
+        "peak",
+        NULL,
 };
 
 r_device elv_em1000 = {
-    .name           = "ELV EM 1000",
-    .modulation     = OOK_PULSE_PPM,
-    .short_width    = 500,  // guessed, no samples available
-    .long_width     = 1000, // guessed, no samples available
-    .gap_limit      = 7250,
-    .reset_limit    = 30000,
-    .decode_fn      = &em1000_callback,
-    .disabled       = 1,
-    .fields         = elv_em1000_output_fields,
+        .name        = "ELV EM 1000",
+        .modulation  = OOK_PULSE_PPM,
+        .short_width = 500,  // guessed, no samples available
+        .long_width  = 1000, // guessed, no samples available
+        .gap_limit   = 7250,
+        .reset_limit = 30000,
+        .decode_fn   = &em1000_callback,
+        .disabled    = 1,
+        .fields      = elv_em1000_output_fields,
 };
-
 
 // based on http://www.dc3yc.privat.t-online.de/protocol.htm
 static int ws2000_callback(r_device *decoder, bitbuffer_t *bitbuffer)
@@ -133,8 +131,7 @@ static int ws2000_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     dec[0] = AD_POP (bb[0], 4, bit); bit+=4;
     stopbit= AD_POP (bb[0], 1, bit); bit+=1;
     if (!stopbit) {
-        if (decoder->verbose)
-            fprintf(stderr, "!stopbit\n");
+        decoder_log(decoder, 1, __func__, "!stopbit");
         return DECODE_ABORT_EARLY;
     }
     check_calculated ^= dec[0];
@@ -145,21 +142,17 @@ static int ws2000_callback(r_device *decoder, bitbuffer_t *bitbuffer)
         dec[i] = AD_POP (bb[0], 4, bit); bit+=4;
         stopbit= AD_POP (bb[0], 1, bit); bit+=1;
         if (!stopbit) {
-            if (decoder->verbose)
-                fprintf(stderr, "!stopbit %i\n", bit);
+            decoder_logf(decoder, 1, __func__, "!stopbit %i", bit);
             return DECODE_ABORT_EARLY;
         }
         check_calculated ^= dec[i];
         sum_calculated   += dec[i];
         nibbles++;
     }
-    if (decoder->verbose) {
-        bitrow_print(dec, nibbles * 8);
-    }
+    decoder_log_bitrow(decoder, 1, __func__, dec, nibbles * 8, "");
 
     if (check_calculated) {
-        if (decoder->verbose)
-            fprintf(stderr, "check_calculated (%d) != 0\n", check_calculated);
+        decoder_logf(decoder, 1, __func__, "check_calculated (%d) != 0", check_calculated);
         return DECODE_FAIL_MIC;
     }
 
@@ -168,8 +161,7 @@ static int ws2000_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     sum_calculated+=5;
     sum_calculated&=0xF;
     if (sum_received != sum_calculated) {
-        if (decoder->verbose)
-            fprintf(stderr, "sum_received (%d) != sum_calculated (%d) ", sum_received, sum_calculated);
+        decoder_logf(decoder, 1, __func__, "sum_received (%d) != sum_calculated (%d)", sum_received, sum_calculated);
         return DECODE_FAIL_MIC;
     }
 
@@ -178,7 +170,7 @@ static int ws2000_callback(r_device *decoder, bitbuffer_t *bitbuffer)
     float temp     = ((dec[1] & 8) ? -1.0f : 1.0f) * (dec[4] * 10 + dec[3] + dec[2] * 0.1f);
     float humidity = dec[7] * 10 + dec[6] + dec[5] * 0.1f;
     int pressure   = 0;
-    if (dec[0]==4) {
+    if (dec[0] == 4) {
         pressure = 200 + dec[10] * 100 + dec[9] * 10 + dec[8];
     }
 

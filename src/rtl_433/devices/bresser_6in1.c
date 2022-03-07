@@ -21,7 +21,7 @@ Decoder for Bresser Weather Center 6-in-1.
 - also Bresser 3-in-1 Professional Wind Gauge / Anemometer PN 7002531
 
 There are at least two different message types:
-- 24 seconds interval for temperatur, hum, uv and rain (alternating messages)
+- 24 seconds interval for temperature, hum, uv and rain (alternating messages)
 - 12 seconds interval for wind data (every message)
 
 Also Bresser Explore Scientific SM60020 Soil moisture Sensor.
@@ -64,7 +64,10 @@ Moisture is transmitted in the humidity field as index 1-16: 0, 7, 13, 20, 27, 3
 {150} 5c e4 18 80 02 c3 18 fb ba fc 26 98 11 84 81 ff f0 16 00 [Temp 11.8 C  Hum 81%]
 {148} d0 bd 18 80 02 c3 18 f9 ad fa 26 48 ff ff ff fe 02 ff f0
 
-    DIGEST:8h8h ID?8h8h8h8h FLAGS:4h BATT:1b CH:3d WSPEED:~8h~4h ~4h~8h WDIR:12h ?4h TEMP8h.4h ?4h HUM8h UV?~12h ?4h CHKSUM:8h
+Wind and Temperature/Humidity or Rain:
+
+    DIGEST:8h8h ID:8h8h8h8h FLAGS:4h BATT:1b CH:3d WSPEED:~8h~4h ~4h~8h WDIR:12h ?4h TEMP:8h.4h ?4h HUM:8h UV?~12h ?4h CHKSUM:8h
+    DIGEST:8h8h ID:8h8h8h8h FLAGS:4h BATT:1b CH:3d WSPEED:~8h~4h ~4h~8h WDIR:12h ?4h RAINFLAG:8h RAIN:8h8h UV:8h8h CHKSUM:8h
 
 Digest is LFSR-16 gen 0x8810 key 0x5412, excluding the add-checksum and trailer.
 Checksum is 8-bit add (with carry) to 0xff.
@@ -92,8 +95,7 @@ static int bresser_6in1_decode(r_device *decoder, bitbuffer_t *bitbuffer)
     if (bitbuffer->num_rows != 1
             || bitbuffer->bits_per_row[0] < 160
             || bitbuffer->bits_per_row[0] > 440) {
-        if (decoder->verbose > 1)
-            fprintf(stderr, "%s: bit_per_row %u out of range\n", __func__, bitbuffer->bits_per_row[0]);
+        decoder_logf(decoder, 2, __func__, "bit_per_row %u out of range", bitbuffer->bits_per_row[0]);
         return DECODE_ABORT_EARLY; // Unrecognized data
     }
 
@@ -107,31 +109,26 @@ static int bresser_6in1_decode(r_device *decoder, bitbuffer_t *bitbuffer)
 
     unsigned len = bitbuffer->bits_per_row[0] - start_pos;
     if (len < sizeof(msg) * 8) {
-        if (decoder->verbose > 1)
-            fprintf(stderr, "%s: %u too short\n", __func__, len);
+        decoder_logf(decoder, 2, __func__, "%u too short", len);
         return DECODE_ABORT_LENGTH; // message too short
     }
 
     bitbuffer_extract_bytes(bitbuffer, 0, start_pos, msg, sizeof(msg) * 8);
 
-    if (decoder->verbose > 1) {
-        bitrow_printf(msg, sizeof(msg) * 8, "%s: ", __func__);
-    }
+    decoder_log_bitrow(decoder, 2, __func__, msg, sizeof(msg) * 8, "");
 
     // LFSR-16 digest, generator 0x8810 init 0x5412
     int chkdgst = (msg[0] << 8) | msg[1];
     int digest  = lfsr_digest16(&msg[2], 15, 0x8810, 0x5412);
     if (chkdgst != digest) {
-        if (decoder->verbose > 1)
-            fprintf(stderr, "%s: Digest check failed %04x vs %04x\n", __func__, chkdgst, digest);
+        decoder_logf(decoder, 2, __func__, "Digest check failed %04x vs %04x", chkdgst, digest);
         return DECODE_FAIL_MIC;
     }
     // Checksum, add with carry
     int chksum = msg[17];
     int sum    = add_bytes(&msg[2], 16); // msg[2] to msg[17]
     if ((sum & 0xff) != 0xff) {
-        if (decoder->verbose > 1)
-            fprintf(stderr, "%s: Checksum failed %04x vs %04x\n", __func__, chksum, sum);
+        decoder_logf(decoder, 2, __func__, "Checksum failed %04x vs %04x", chksum, sum);
         return DECODE_FAIL_MIC;
     }
 
@@ -140,8 +137,8 @@ static int bresser_6in1_decode(r_device *decoder, bitbuffer_t *bitbuffer)
     int batt     = (msg[6] >> 3) & 1;
     int chan     = (msg[6] & 0x7);
 
-    int temp_ok = msg[12] != 0xff;
-    // temperature, humidity, only if msg[12] != 0xff
+    // temperature, humidity, shared with rain counter, only if valid BCD digits
+    int temp_ok  = msg[12] <= 0x99 && (msg[13] & 0xf0) <= 0x90;
     int temp_raw = (msg[12] >> 4) * 100 + (msg[12] & 0x0f) * 10 + (msg[13] >> 4);
     float temp_c = temp_raw * 0.1f;
     if (temp_raw > 600)
@@ -149,11 +146,11 @@ static int bresser_6in1_decode(r_device *decoder, bitbuffer_t *bitbuffer)
 
     int humidity    = (msg[14] >> 4) * 10 + (msg[14] & 0x0f);
 
-    // apparently ff01 if not available
-    //int uv_ok = (msg[16] & 0x0f) == 0;
+    // apparently ff0(1) if not available
     int uv_ok  = msg[15] <= 0x99 && (msg[16] & 0xf0) <= 0x90;
     int uv_raw = ((msg[15] & 0xf0) >> 4) * 100 + (msg[15] & 0x0f) * 10 + ((msg[16] & 0xf0) >> 4);
     float uv   = uv_raw * 0.1f;
+    int flags  = (msg[16] & 0x0f); // looks like some flags, not sure
 
     //int unk_ok  = (msg[16] & 0xf0) == 0xf0;
     //int unk_raw = ((msg[15] & 0xf0) >> 4) * 10 + (msg[15] & 0x0f);
@@ -170,11 +167,14 @@ static int bresser_6in1_decode(r_device *decoder, bitbuffer_t *bitbuffer)
     float wind_avg  = wavg_raw * 0.1f;
     int wind_dir    = ((msg[10] & 0xf0) >> 4) * 100 + (msg[10] & 0x0f) * 10 + ((msg[11] & 0xf0) >> 4);
 
-    // rain, only if msg[12] == 0xff
-    // invert 2 bytes rain counter
+    // rain counter, inverted 3 bytes BCD, shared with temp/hum, only if valid digits
+    msg[12] ^= 0xff;
     msg[13] ^= 0xff;
     msg[14] ^= 0xff;
-    int rain_raw  = (msg[13] >> 4) * 1000 + (msg[13] & 0x0f) * 100 + (msg[14] >> 4) * 10 + (msg[14] & 0x0f);
+    int rain_ok   = msg[12] <= 0x99 && msg[13] <= 0x99 && msg[14] <= 0x99;
+    int rain_raw  = (msg[12] >> 4) * 100000 + (msg[12] & 0x0f) * 10000
+            + (msg[13] >> 4) * 1000 + (msg[13] & 0x0f) * 100
+            + (msg[14] >> 4) * 10 + (msg[14] & 0x0f);
     float rain_mm = rain_raw * 0.1f;
 
     int moisture = -1;
@@ -186,7 +186,7 @@ static int bresser_6in1_decode(r_device *decoder, bitbuffer_t *bitbuffer)
             "model",            "",             DATA_STRING, "Bresser-6in1",
             "id",               "",             DATA_FORMAT, "%08x", DATA_INT,    id,
             "channel",          "",             DATA_INT,    chan,
-            "battery_ok",       "Battery OK",   DATA_INT,    batt,
+            "battery_ok",       "Battery",      DATA_INT,    batt,
             "temperature_C",    "Temperature",  DATA_COND, temp_ok, DATA_FORMAT, "%.1f C", DATA_DOUBLE, temp_c,
             "humidity",         "Humidity",     DATA_COND, temp_ok && moisture < 0, DATA_INT,    humidity,
             "sensor_type",      "Sensor type",  DATA_INT,    s_type,
@@ -194,9 +194,10 @@ static int bresser_6in1_decode(r_device *decoder, bitbuffer_t *bitbuffer)
             "wind_max_m_s",     "Wind Gust",    DATA_COND, wind_ok, DATA_FORMAT, "%.1f m/s", DATA_DOUBLE, wind_gust,
             "wind_avg_m_s",     "Wind Speed",   DATA_COND, wind_ok, DATA_FORMAT, "%.1f m/s", DATA_DOUBLE, wind_avg,
             "wind_dir_deg",     "Direction",    DATA_COND, wind_ok, DATA_INT,    wind_dir,
-            "rain_mm",          "Rain",         DATA_COND, !temp_ok, DATA_FORMAT, "%.1f mm", DATA_DOUBLE, rain_mm,
+            "rain_mm",          "Rain",         DATA_COND, rain_ok, DATA_FORMAT, "%.1f mm", DATA_DOUBLE, rain_mm,
             //"unknown",          "Unknown",      DATA_COND, unk_ok, DATA_INT,    unk_raw,
             "uv",               "UV",           DATA_COND, uv_ok, DATA_FORMAT, "%.1f", DATA_DOUBLE,    uv,
+            "flags",            "Flags",        DATA_INT,    flags,
             "mic",              "Integrity",    DATA_STRING, "CRC",
             NULL);
     /* clang-format on */
@@ -219,6 +220,7 @@ static char *output_fields[] = {
         "wind_dir_deg",
         "rain_mm",
         "uv",
+        "flags",
         "mic",
         NULL,
 };
@@ -230,6 +232,5 @@ r_device bresser_6in1 = {
         .long_width  = 124,
         .reset_limit = 25000,
         .decode_fn   = &bresser_6in1_decode,
-        .disabled    = 0,
         .fields      = output_fields,
 };

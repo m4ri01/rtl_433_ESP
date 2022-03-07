@@ -90,7 +90,7 @@ static int lacrossetx_detect(r_device *decoder, uint8_t *pRow, uint8_t *msg_nybb
                 parity += bit;
             }
 
-            //            fprintf(stderr, "recv: [%d/%d] %d -> msg [%d/%d] %02x, Parity: %d %s\n", rbyte_no, rbit_no,
+            //            decoder_logf(decoder, 0, __func__, "recv: [%d/%d] %d -> msg [%d/%d] %02x, Parity: %d %s", rbyte_no, rbit_no,
             //                    bit, mnybble_no, mbit_no, msg_nybbles[mnybble_no], parity,
             //                    ( mbit_no == 0 ) ? "\n" : "" );
         }
@@ -104,16 +104,14 @@ static int lacrossetx_detect(r_device *decoder, uint8_t *pRow, uint8_t *msg_nybb
             checksum = (checksum + msg_nybbles[i]) & 0x0F;
         }
 
-        // fprintf(stderr,"Parity: %d, parity bit %d, Good %d\n", parity, parity_bit, parity % 2);
+        // decoder_logf(decoder, 0, __func__,"Parity: %d, parity bit %d, Good %d", parity, parity_bit, parity % 2);
 
         if (checksum == msg_nybbles[10] && (parity % 2 == 0)) {
             return 1;
         } else {
-            if (decoder->verbose > 1) {
-                fprintf(stderr,
-                        "LaCrosse TX Checksum/Parity error: Comp. %d != Recv. %d, Parity %d\n",
-                        checksum, msg_nybbles[10], parity);
-            }
+            decoder_logf(decoder, 2, __func__,
+                    "LaCrosse TX Checksum/Parity error: Comp. %d != Recv. %d, Parity %d",
+                    checksum, msg_nybbles[10], parity);
             return DECODE_FAIL_MIC;
         }
     }
@@ -125,14 +123,16 @@ static int lacrossetx_detect(r_device *decoder, uint8_t *pRow, uint8_t *msg_nybb
 // Temperature and Humidity are sent in different messages bursts.
 static int lacrossetx_decode(r_device *decoder, bitbuffer_t *bitbuffer)
 {
-    bitrow_t *bb = bitbuffer->bb;
     int events = 0;
     uint8_t msg_nybbles[LACROSSE_NYBBLE_CNT];
     data_t *data;
 
+    int result = 0;
+
     for (int row = 0; row < bitbuffer->num_rows; ++row) {
         // break out the message nybbles into separate bytes
-        if (lacrossetx_detect(decoder, bb[row], msg_nybbles, bitbuffer->bits_per_row[row]) <= 0) {
+        if (lacrossetx_detect(decoder, bitbuffer->bb[row], msg_nybbles, bitbuffer->bits_per_row[row]) <= 0) {
+            result = DECODE_ABORT_EARLY;
             continue; // DECODE_ABORT_EARLY
         }
 
@@ -147,11 +147,10 @@ static int lacrossetx_decode(r_device *decoder, bitbuffer_t *bitbuffer)
         // message integrity.
         if (msg_nybbles[5] != msg_nybbles[8]
                 || msg_nybbles[6] != msg_nybbles[9]) {
-            if (decoder->verbose) {
-                fprintf(stderr,
-                        "LaCrosse TX Sensor %02x, type: %d: message value mismatch int(%3.1f) != %d?\n",
-                        sensor_id, msg_type, msg_value, msg_value_int);
-            }
+            decoder_logf(decoder, 1, __func__,
+                    "Sensor %02x, type: %d: message value mismatch int(%3.1f) != %d?\n",
+                    sensor_id, msg_type, msg_value, msg_value_int);
+            result = DECODE_FAIL_SANITY;
             continue; // DECODE_FAIL_SANITY
         }
 
@@ -159,7 +158,7 @@ static int lacrossetx_decode(r_device *decoder, bitbuffer_t *bitbuffer)
             float temp_c = msg_value - 50.0;
             /* clang-format off */
             data = data_make(
-                    "model",            "",             DATA_STRING, _X("LaCrosse-TX","LaCrosse TX Sensor"),
+                    "model",            "",             DATA_STRING, "LaCrosse-TX",
                     "id",               "",             DATA_INT,    sensor_id,
                     "temperature_C",    "Temperature",  DATA_FORMAT, "%.1f C", DATA_DOUBLE, temp_c,
                     "mic",              "Integrity",    DATA_STRING, "PARITY",
@@ -171,7 +170,7 @@ static int lacrossetx_decode(r_device *decoder, bitbuffer_t *bitbuffer)
         else if (msg_type == 0x0E) {
             /* clang-format off */
             data = data_make(
-                    "model",            "",             DATA_STRING, _X("LaCrosse-TX","LaCrosse TX Sensor"),
+                    "model",            "",             DATA_STRING, "LaCrosse-TX",
                     "id",               "",             DATA_INT,    sensor_id,
                     "humidity",         "Humidity",     DATA_FORMAT, "%.1f %%", DATA_DOUBLE, msg_value,
                     "mic",              "Integrity",    DATA_STRING, "PARITY",
@@ -182,15 +181,16 @@ static int lacrossetx_decode(r_device *decoder, bitbuffer_t *bitbuffer)
         }
         else  {
             // TODO: this should be reported/counted as exception, not considered debug
-            if (decoder->verbose) {
-                fprintf(stderr,
-                        "LaCrosse Sensor %02x: Unknown Reading type %d, % 3.1f (%d)\n",
-                        sensor_id, msg_type, msg_value, msg_value_int);
-            }
+            decoder_logf(decoder, 1, __func__,
+                    "Sensor %02x: Unknown Reading type %d, % 3.1f (%d)\n",
+                    sensor_id, msg_type, msg_value, msg_value_int);
         }
     }
 
-    return events;
+    if (events)
+        return events;
+
+    return result;
 }
 
 static char *output_fields[] = {
@@ -210,8 +210,6 @@ r_device lacrossetx = {
         .gap_limit   = 3000, // max gap is 1000 us
         .reset_limit = 8000, // actually: packet gap is 29000 us
         .sync_width  = 0,    // not used
-        .tolerance   = 0,    // raw mode
         .decode_fn   = &lacrossetx_decode,
-        .disabled    = 0,
         .fields      = output_fields,
 };

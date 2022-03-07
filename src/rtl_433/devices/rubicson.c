@@ -32,15 +32,17 @@ The sensor can be bought at Kjell&Co
 #include "decoder.h"
 
 // NOTE: this is used in nexus.c and solight_te44.c
+int rubicson_crc_check(uint8_t *b);
+
 int rubicson_crc_check(uint8_t *b)
 {
     uint8_t tmp[5];
-    tmp[0] = b[0];            // Byte 0 is nibble 0 and 1
-    tmp[1] = b[1];            // Byte 1 is nibble 2 and 3
-    tmp[2] = b[2];            // Byte 2 is nibble 4 and 5
-    tmp[3] = b[3]&0xf0;       // Byte 3 is nibble 6 and 0-padding
-    tmp[4] = (b[3]&0x0f)<<4 | // CRC is nibble 7 and 8
-             (b[4]&0xf0)>>4;
+    tmp[0] = b[0];                // Byte 0 is nibble 0 and 1
+    tmp[1] = b[1];                // Byte 1 is nibble 2 and 3
+    tmp[2] = b[2];                // Byte 2 is nibble 4 and 5
+    tmp[3] = b[3] & 0xf0;         // Byte 3 is nibble 6 and 0-padding
+    tmp[4] = (b[3] & 0x0f) << 4 | // CRC is nibble 7 and 8
+             (b[4] & 0xf0) >> 4;
 
     return crc8(tmp, 5, 0x31, 0x6c) == 0;
 }
@@ -75,10 +77,10 @@ static int rubicson_callback(r_device *decoder, bitbuffer_t *bitbuffer)
 
     /* clang-format off */
     data = data_make(
-            "model",            "",             DATA_STRING, _X("Rubicson-Temperature","Rubicson Temperature Sensor"),
+            "model",            "",             DATA_STRING, "Rubicson-Temperature",
             "id",               "House Code",   DATA_INT,    id,
             "channel",          "Channel",      DATA_INT,    channel,
-            "battery",          "Battery",      DATA_STRING, battery ? "OK" : "LOW",
+            "battery_ok",       "Battery",      DATA_INT,    !!battery,
             "temperature_C",    "Temperature",  DATA_FORMAT, "%.1f C", DATA_DOUBLE, temp_c,
             "mic",              "Integrity",    DATA_STRING, "CRC",
             NULL);
@@ -92,7 +94,7 @@ static char *output_fields[] = {
         "model",
         "id",
         "channel",
-        "battery",
+        "battery_ok",
         "temperature_C",
         "mic",
         NULL,
