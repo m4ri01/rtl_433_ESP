@@ -25,7 +25,7 @@
 #ifndef ICACHE_RAM_ATTR
 #define ICACHE_RAM_ATTR IRAM_ATTR
 #endif
-
+#define MY_DEVICES 1
 extern "C"
 {
 #include "bitbuffer.h"
@@ -74,9 +74,9 @@ int16_t rtl_433_ESP::_interrupt = NOT_AN_INTERRUPT;
 static byte receiverGDO0 = -1;
 static byte receiverGDO2 = -1;
 
-static byte modulation = CC1101_ASK; // Default modulation
+// static byte modulation = CC1101_ASK; // Default modulation
 
-// static byte modulation = CC1101_2FSK;
+static byte modulation = CC1101_2FSK;
 
 r_cfg_t rtl_433_ESP::g_cfg;
 
@@ -289,7 +289,7 @@ void rtl_433_ESP::initReceiver(byte inputPin1, byte inputPin2, float receiveFreq
   ELECHOUSE_cc1101.Init();
   ELECHOUSE_cc1101.SpiWriteReg(CC1101_IOCFG0, 0x0E);   // Enable carrier sense for GDO0
   ELECHOUSE_cc1101.SpiWriteReg(CC1101_AGCCTRL1, 0x10); // Carrier sense relative +6db
-  ELECHOUSE_cc1101.setModulation(modulation);
+  ELECHOUSE_cc1101.set(modulation);
   ELECHOUSE_cc1101.SetRx(receiveFrequency);
 
   resetReceiver();
